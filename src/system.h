@@ -2,7 +2,6 @@
 #define SYSTEM_H
 
 // Initialize onboard LED (PC13)
-#include "systick.h"
 void led_init(void);
 
 // Toggle LED state
