@@ -2,16 +2,16 @@
 #define SYSTEM_H
 
 // Initialize onboard LED (PC13)
-void led_init(void);
+void LedInit(void);
 
 // Toggle LED state
-void toggle_led(void);
+void ToggleLed(void);
 
 // Turn LED on
-void led_on(void);
+void LedOn(void);
 
 // Turn LED off
-void led_off(void);
+void LedOff(void);
 
 void SystemClock_Config_100MHz_HSE(void);
 

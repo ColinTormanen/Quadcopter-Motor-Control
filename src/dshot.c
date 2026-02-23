@@ -123,7 +123,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     // DMA1_Stream4->CR |= (1<<8); // Enable circular mode for testing
 
     DMA1_Stream4->NDTR = dmaTransferSize; // Buffer size to transfer
-    DMA1_Stream4->PAR = (uint32_t) &TIM3->CCR1; // Set the peripheral memory address to 
+    DMA1_Stream4->PAR = (uint32_t) &TIM3->CCR1; // Set the peripheral memory address to the timer
     DMA1_Stream4->M0AR = (uint32_t) motor1->dshotBuffer; // Set the memory location to the buffer
     DMA1_Stream4->FCR = 0;
 
@@ -202,65 +202,6 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     DMA1_Stream2->FCR = 0;
 
     // __NVIC_EnableIRQ(DMA1_Stream2_IRQn);
-
-
-    // ==================== Configure Telemetry reading Timers ==================== //\
-    // Motor 1 -> Tim4, B4
-    // Motor 2 -> Tim5, B5
-    // Motor 3 -> Tim9, B0
-    // Motor 4 -> Tim10, B1
-
-    RCC->APB1ENR |= RCC_APB1ENR_TIM4EN | RCC_APB1ENR_TIM5EN; // Enable clock for TIM4 and TIM5
-    RCC->APB2ENR |= RCC_APB2ENR_TIM9EN | RCC_APB2ENR_TIM10EN; // Enable clock for TIM9 and TIM10
-    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; // Enable clock for SYSCFG
-
-    TIM4->CR1 = 0; // Reset the clock
-    TIM5->CR1 = 0; 
-    TIM9->CR1 = 0; 
-    TIM10->CR1 = 0;
-    
-    TIM4->CCR1 = pollTimerWidth; // Set poll duration
-    TIM5->CCR1 = pollTimerWidth;
-    TIM9->CCR1 = pollTimerWidth;
-    TIM10->CCR1 = pollTimerWidth;   
-    
-    TIM4->DIER |= 2; // Enable CC1 interrupt
-    TIM5->DIER |= 2;
-    TIM9->DIER |= 2;
-    TIM10->DIER |= 2;
-
-    TIM4->ARR = pollTimerWidth;
-    TIM5->ARR = pollTimerWidth;
-    TIM9->ARR = pollTimerWidth;
-    TIM10->ARR = pollTimerWidth;
-
-    // GPIO interrupt configuration for telemetry
-    SYSCFG->EXTICR[0] &= ~(0xFF); // Clear EXTI0, 1
-    SYSCFG->EXTICR[0] |= (1<<0) | (1<<4); // Set EXTI0, 1 to port B
-    SYSCFG->EXTICR[1] &= ~(0xFF); // Clear EXTI4, 5
-    SYSCFG->EXTICR[1] |= (1<<0) | (1<<4); // Set EXTI4, 5 to port B
-    EXTI->IMR |= (1<<0) | (1<<1) | (1<<4) | (1<<5); // Unmask EXTI0, 1, 4, 5
-    EXTI->FTSR |= (1<<0) | (1<<1) | (1<<4) | (1<<5); // Falling edge trigger
-
-    // TEsting:
-    GPIOB->MODER |= (1<<14); // Set pin to output
-    GPIOB->OSPEEDR  |= 3<<14;
-    GPIOB->ODR &= ~(1<<7);
-
-    __NVIC_SetPriority(EXTI0_IRQn, 5);
-    __NVIC_SetPriority(EXTI1_IRQn, 5);
-    __NVIC_SetPriority(EXTI4_IRQn, 5);
-    __NVIC_SetPriority(EXTI9_5_IRQn, 5);
-
-    __NVIC_SetPriority(TIM4_IRQn, 10);
-    __NVIC_SetPriority(TIM5_IRQn, 10);
-    __NVIC_SetPriority(TIM1_BRK_TIM9_IRQn, 10);
-    __NVIC_SetPriority(TIM1_UP_TIM10_IRQn, 10);
-
-    __NVIC_SetPriority(DMA1_Stream4_IRQn, 15);
-    __NVIC_SetPriority(DMA1_Stream5_IRQn, 15);
-    __NVIC_SetPriority(DMA1_Stream7_IRQn, 15);
-    __NVIC_SetPriority(DMA1_Stream2_IRQn, 15);
 }
 
 void InitiMotor(dshotMotor* motor)

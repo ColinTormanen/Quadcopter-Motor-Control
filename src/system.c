@@ -1,7 +1,7 @@
 #include "system.h"
 #include "stm32f411xe.h"
 
-void led_init(void) {
+void LedInit(void) {
     // Enable GPIOC clock (onboard LED is usually on PC13)
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
     __DSB(); // Data Synchronization Barrier
@@ -20,11 +20,11 @@ void led_init(void) {
     GPIOC->OSPEEDR &= ~(GPIO_OSPEEDER_OSPEEDR13);
 }
 
-void toggle_led(void) { GPIOC->ODR ^= GPIO_ODR_ODR_13; }
+void ToggleLed(void) { GPIOC->ODR ^= GPIO_ODR_ODR_13; }
 
-void led_on(void) { GPIOC->ODR &= ~GPIO_ODR_ODR_13; }  // Active low
+void LedOn(void) { GPIOC->ODR &= ~GPIO_ODR_ODR_13; }  // Active low
 
-void led_off(void) { GPIOC->ODR |= GPIO_ODR_ODR_13; }  // Active low
+void LedOff(void) { GPIOC->ODR |= GPIO_ODR_ODR_13; }  // Active low
 
 // config chip to use 25mhz HSL clock and PLL x4 for a total of 100mhz
 void SystemClock_Config_100MHz_HSE(void) {
