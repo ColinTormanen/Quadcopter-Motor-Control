@@ -1,9 +1,12 @@
 #ifndef DSHOT_H
 #define DSHOT_H
 
-#define dshotWidth 132
-#define dshotHigh 100
-#define dshotLow 52
+// Configured for DShot600
+#define dshotWidth 42
+#define dshotHigh 30
+#define dshotLow 15
+
+// DShot is 16 bits. The rest are used for inter-frame gap 
 #define dmaTransferSize 48
 #define true 1
 #define false 0

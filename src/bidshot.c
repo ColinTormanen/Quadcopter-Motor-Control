@@ -20,6 +20,9 @@ const uint8_t gcr_table[] = { // Nibble decoding table
 };
 
 void InitBidshot() {
+    // Invert the PWM to indicate Bi-Directional DSHOT mode to the ESCs
+    TIM3->CCMR1 |= (7<<4) | (7<<12); // Set to PWM mode 2 for CCR1, CCR2
+    TIM3->CCMR2 |= (7<<4) | (7<<12); // Set to PWM mode 2 for CCR3, CCR4
 
     // ==================== Configure Telemetry reading Timers ==================== //
     // Motor 1 -> B4, EXTI4_IRQn

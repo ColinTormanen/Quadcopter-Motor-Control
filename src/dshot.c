@@ -77,10 +77,10 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     TIM3->CR1 = 0; // Reset the clock
     
     TIM3->CCMR1 &= ~(3 | (3<<8)); // Set as ouput on channel 1 and 2
-    TIM3->CCMR1 |= (7<<4) | (7<<12); // Set to PWM mode 1 for CCR1, CCR2
+    TIM3->CCMR1 |= (6<<4) | (6<<12); // Set to PWM mode 1 for CCR1, CCR2
     TIM3->CCMR1 |= (1<<3) | (1<<11); // Set Preload to true for CCR1, CCR2
     TIM3->CCMR2 &= ~(3 | (3<<8)); // Set as output on channel 3 and 4
-    TIM3->CCMR2 |= (7<<4) | (7<<12); // Set to PWM mode 1 for CCR3, CCR4
+    TIM3->CCMR2 |= (6<<4) | (6<<12); // Set to PWM mode 1 for CCR3, CCR4
     TIM3->CCMR2 |= (1<<3) | (1<<11); // Set Preload to true for CCR3, CCR4
     TIM3->ARR = dshotWidth; // Auto reload value set to 500
 
@@ -97,7 +97,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     TIM3->DIER |= (0xF<<9); // Enable CC1, 2, 3, and 4 DMA request
     TIM3->EGR |= (0xF<<1); // Generate DMA request on cc1, 2, 3, and 4 match
     // TIM2->CR1 |= 1; // Enable the counter
-    TIM3->PSC = 4; // Prescale to get 25 Mhz timer clock
+    TIM3->PSC = 3; // Prescale to get 25 Mhz timer clock
 
 // ============================================================================================ //
 // ============== Initialize DMA ============================================================== //
@@ -212,6 +212,6 @@ void InitiMotor(dshotMotor* motor)
         motor->dshotBuffer[i] = 0;
         motor->dshotBuffer2[i] = 0;
     }
-    motor->throttle = 0;
+    motor->throttle = 5;
     ConstructDshotFrame(motor, motor->throttle);
 }

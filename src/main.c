@@ -1,7 +1,7 @@
 #include "motor_control.h"
 #include "system.h"
 
-#define MotorStartDelay 1000000
+#define MotorStartDelay 50000000
 
 void BusyWait(uint32_t delay) 
 {
@@ -13,6 +13,7 @@ int main()
     SystemClock_Config_100MHz_HSE();
 
     LedInit();
+    LedOff();
     InitMotors();
     StartMotors();
 
@@ -24,15 +25,27 @@ int main()
 
     while(1)
     {
-        for(volatile int i = 0; i < 100000000; i++); // delay
-        SetMotorThrottle(motor1, 50);
-        for(volatile int i = 0; i < 10000000; i++); // delay
-        SetMotorThrottle(motor2, 50);
-        for(volatile int i = 0; i < 10000000; i++); // delay
-        SetMotorThrottle(motor3, 50);
-        for(volatile int i = 0; i < 10000000; i++); // delay
-        SetMotorThrottle(motor4, 50);
-        for(volatile int i = 0; i < 10000000; i++); // delay
+        for (int i = 48; i <= 100; i++)
+        {
+            SetMotorThrottle(motor1, i);
+            SetMotorThrottle(motor2, i);
+            SetMotorThrottle(motor3, i);
+            SetMotorThrottle(motor4, i);
+            for(volatile int i = 0; i < 5000000; i++); // delay
+            ToggleLed();
+        }
+
+        BusyWait(100000);
+        for (int i = 48; i <= 500; i++)
+        {
+            SetMotorThrottle(motor1, i);
+            SetMotorThrottle(motor2, i);
+            SetMotorThrottle(motor3, i);
+            SetMotorThrottle(motor4, i);
+            for(volatile int i = 0; i < 5000000; i++); // delay
+            ToggleLed();
+        }
+        
     }
 
     return 0;
