@@ -82,7 +82,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     TIM3->CCMR2 &= ~(3 | (3<<8)); // Set as output on channel 3 and 4
     TIM3->CCMR2 |= (6<<4) | (6<<12); // Set to PWM mode 1 for CCR3, CCR4
     TIM3->CCMR2 |= (1<<3) | (1<<11); // Set Preload to true for CCR3, CCR4
-    TIM3->ARR = dshotWidth; // Auto reload value set to 500
+    TIM3->ARR = dshotWidth; // Auto reload after one bit duration
 
     TIM3->CCR1 = 0; // Match register 1 initial value
     TIM3->CCR2 = 0; // Match register 2 initial value
@@ -119,7 +119,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     DMA1_Stream4->CR |= (1<<11); // Periph data size 16 bits
     DMA1_Stream4->CR |= (1<<13); // Mem size 16 bits
     DMA1_Stream4->CR |= (1<<4); // Transfer complete interrupt enabled
-    DMA1_Stream4->CR |= (1<<3); // Half transfer interrupt enabled
+    // DMA1_Stream4->CR |= (1<<3); // Half transfer interrupt enabled
     // DMA1_Stream4->CR |= (1<<8); // Enable circular mode for testing
 
     DMA1_Stream4->NDTR = dmaTransferSize; // Buffer size to transfer
@@ -144,7 +144,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     DMA1_Stream5->CR |= (1<<11); // Periph data size 16 bits
     DMA1_Stream5->CR |= (1<<13); // Mem size 16 bits
     DMA1_Stream5->CR |= (1<<4); // Transfer complete interrupt enabled
-    DMA1_Stream5->CR |= (1<<3); // Half transfer interrupt enabled
+    // DMA1_Stream5->CR |= (1<<3); // Half transfer interrupt enabled
     // DMA1_Stream5->CR |= (1<<8); // Enable circular mode for testing
 
     DMA1_Stream5->NDTR = dmaTransferSize; // Buffer size to transfer

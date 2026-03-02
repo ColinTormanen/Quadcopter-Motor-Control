@@ -10,7 +10,6 @@
 #define dmaTransferSize 48
 #define true 1
 #define false 0
-#define pollTimerWidth 538
 
 #include <stdint.h>
 

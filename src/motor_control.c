@@ -113,7 +113,7 @@ void DMA1_Stream4_IRQHandler() {
 
         GPIOB->MODER &= ~(3 << 8); // Set pin to input
         EXTI->PR |= (1 << 4);      // Clear the interrupt
-        // __NVIC_EnableIRQ(EXTI4_IRQn);
+        __NVIC_EnableIRQ(EXTI4_IRQn);
     }
 }
 

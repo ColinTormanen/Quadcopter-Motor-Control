@@ -5,7 +5,7 @@
 
 void InitBidshot();
 
-void Decode(int data, dshotMotor *motor);
+int Decode(int data, dshotMotor *motor);
 
 void EXTI4_IRQHandler();
 
