@@ -1,11 +1,12 @@
 #include "bidshot.h"
 #include "dshot.h"
 #include "motor_control.h"
+#include <stdint.h>
 #include <stm32f411xe.h>
 
-#define pollTimerWidth 25
+#define pollTimerWidth 128
 
-#define TelemetrySize 19 // Technically, there are 21 bits in the telemetry frame, but the first bit is always 0, and it missed by the polling
+#define TelemetrySize 20 // Technically, there are 21 bits in the telemetry frame, but the first bit is always 0, and it missed by the polling
 #define Motor1Pin 4
 #define Motor2Pin 5
 #define Motor3Pin 0
@@ -13,7 +14,7 @@
 
 int motor_counter = 0;
 int motor_data = 0;
-int motor_data_buffer[TelemetrySize]; // Buffer to hold the GPIO telemetry data
+uint32_t motor_data_buffer[TelemetrySize]; // Buffer to hold the GPIO telemetry data
 int current_motor = Motor1Pin;
 
 const uint8_t gcr_table[] = { // Nibble decoding table
@@ -23,6 +24,10 @@ const uint8_t gcr_table[] = { // Nibble decoding table
 };
 
 void InitBidshot() {
+    for (int i = 0; i < TelemetrySize; i++) {
+        motor_data_buffer[i] = 0;
+    }   
+
     // Invert the PWM to indicate Bi-Directional DSHOT mode to the ESCs
     TIM3->CCMR1 |= (7<<4) | (7<<12); // Set to PWM mode 2 for CCR1, CCR2
     TIM3->CCMR2 |= (7<<4) | (7<<12); // Set to PWM mode 2 for CCR3, CCR4
@@ -38,16 +43,26 @@ void InitBidshot() {
     // Motor 3 -> B0, EXTI0_IRQn
     // Motor 4 -> B1, EXTI1_IRQn
 
-    RCC->APB1ENR |= RCC_APB1ENR_TIM4EN; // Enable clock for TIM4
+    RCC->APB2ENR |= 1 << RCC_APB2ENR_TIM1EN_Pos; // Enable clock for TIM1
     RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; // Enable clock for SYSCFG
+    RCC->AHB1ENR |= 1 << RCC_AHB1ENR_DMA2EN_Pos; // Enable clock for DMA2
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; // Enable clock for GPIOA
 
-    TIM4->CR1 = 0; // Reset the clock
-    TIM4->CCR1 = pollTimerWidth; // Set poll duration
-    // TIM4->DIER |= 2; // Enable CC1 interrupt
-    TIM4->ARR = pollTimerWidth;
-    TIM4->DIER |= (1<<9); // Enable DMA request on CCR1 match
-    TIM4->EGR |= (1<<1); // Generate DMA request on CCR1 match
-    // TIM4->CR2 |= (1<<3); // DMA request on update event
+    GPIOA->MODER |= (2 << 16); // Set PA8 to alternate function mode for TIM1 CH1
+    GPIOA->AFR[1] |= (1 << 0); // Set alternate function to AF01, TIM1
+    GPIOA->OSPEEDR |= (3 << 16); // High output speed on PA8
+
+    TIM1->CR1 = 0; // Reset the clock
+    TIM1->CCR1 = pollTimerWidth; // Set poll duration
+    TIM1->ARR = pollTimerWidth+1;
+    TIM1->DIER |= (1<<9); // Enable DMA request on CCR1 match
+    TIM1->EGR |= (1<<1); // Generate DMA request on CCR1 match
+    TIM1->CR2 &= ~(1<<3); // DMA request on CC match
+
+    TIM1->CCMR1 |= (3<<4); // Set to toggle mode for CCR1
+    TIM1->CCER |=  TIM_CCER_CC1E; // Enable output on CCR1
+    TIM1->BDTR |= TIM_BDTR_MOE; // Main output enable for advanced timers
+    
 
     // GPIO interrupt configuration for telemetry
     SYSCFG->EXTICR[0] &= ~(0xFF); // Clear EXTI0, 1
@@ -59,40 +74,40 @@ void InitBidshot() {
 
     // ==================== Configure DMA for Telemetry reading ==================== //
     
-    DMA2_Stream0->CR = 0; // Reset the stream
+    DMA2_Stream6->CR = 0; // Reset the stream
 
-    while(DMA1_Stream4->CR & 1) {} // Wait for the stream to stop
-    DMA1_Stream0->CR |= (2<<25); // Set to channel 2
-    DMA1_Stream0->CR |= (2<<16); // High priority
-    DMA1_Stream0->CR |= (0<<6); // Mem-to-periph direction
-    DMA1_Stream0->CR &= ~(1<<9); // Peripheral address is fixed
-    DMA1_Stream0->CR |= (1<<10); // Memory incremented
-    DMA1_Stream0->CR |= (2<<11); // Peripheral data size 32 bits
-    DMA1_Stream0->CR |= (2<<13); // Memory data size 32 bits
-    DMA1_Stream0->CR |= (1<<4); // Transfer complete interrupt enabled
+    while(DMA2_Stream6->CR & 1) {} // Wait for the stream to stop
+    DMA2_Stream6->CR |= (0<<25); // Set to channel 0
+    DMA2_Stream6->CR |= (1<<16); // High priority
+    DMA2_Stream6->CR |= (0<<6); // Periph-to-mem direction
+    DMA2_Stream6->CR &= ~(1<<9); // Peripheral address is fixed
+    DMA2_Stream6->CR |= (1<<10); // Memory incremented
+    DMA2_Stream6->CR |= (2<<11); // Peripheral data size 32 bits
+    DMA2_Stream6->CR |= (2<<13); // Memory data size 32 bits
+    DMA2_Stream6->CR |= (1<<4); // Transfer complete interrupt enabled
 
-    DMA1_Stream0->NDTR = TelemetrySize; // Buffer size to transfer
-    DMA1_Stream0->PAR = (uint32_t) &GPIOB->IDR; // Set the peripheral memory address to the GPIO input data register
-    DMA1_Stream0->M0AR = (uint32_t) motor_data_buffer; // Set the memory location to the buffer
+    DMA2_Stream6->NDTR = TelemetrySize; // Buffer size to transfer
+    DMA2_Stream6->PAR = (uint32_t) &GPIOB->IDR; // Set the peripheral memory address to the GPIO input data register
+    DMA2_Stream6->M0AR = (uint32_t) motor_data_buffer; // Set the memory location to the buffer
 
-    // Testing, used to output when the timer is triggered
-    GPIOB->MODER |= (1<<14); // Set pin to output
-    GPIOB->OSPEEDR  |= 3<<14;
-    GPIOB->ODR &= ~(1<<7);
-
+    // DMA2_Stream6->CR |= 1; // Enable the DMA stream
+    // TIM1->CR1 |= 1; // Start the timer
+    
     __NVIC_SetPriority(EXTI0_IRQn, 5);
     __NVIC_SetPriority(EXTI1_IRQn, 5);
     __NVIC_SetPriority(EXTI4_IRQn, 5);
     __NVIC_SetPriority(EXTI9_5_IRQn, 5);
 
-    __NVIC_SetPriority(TIM4_IRQn, 10);
+    __NVIC_SetPriority(TIM1_CC_IRQn, 10);
 
-    __NVIC_SetPriority(DMA1_Stream0_IRQn, 10);
+    __NVIC_SetPriority(DMA2_Stream6_IRQn, 10);
     __NVIC_SetPriority(DMA1_Stream4_IRQn, 15);
     __NVIC_SetPriority(DMA1_Stream5_IRQn, 15);
     __NVIC_SetPriority(DMA1_Stream7_IRQn, 15);
     __NVIC_SetPriority(DMA1_Stream2_IRQn, 15);
+    __NVIC_SetPriority(DMA1_Stream3_IRQn, 20);
 
+    __NVIC_EnableIRQ(DMA2_Stream6_IRQn);
 }
 
 int Decode(int data, dshotMotor *motor) {
@@ -137,15 +152,13 @@ int Decode(int data, dshotMotor *motor) {
 // Motor 1
 void EXTI4_IRQHandler() {
     if (EXTI->PR & (1 << 4) && !(GPIOB->IDR & (1 << 4))) {
+        DMA2_Stream6->CR |= 1; // Start the DMA transfer
+        TIM1->CR1 |= 1; // Start the timer
         EXTI->PR |= (1 << 4); // Clear the interrupt
         __NVIC_DisableIRQ(EXTI4_IRQn);
-        __NVIC_EnableIRQ(DMA1_Stream0_IRQn);
-        DMA1_Stream0->CR |= 1; // Start the DMA transfer
-        // __NVIC_EnableIRQ(TIM4_IRQn);
+        __NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+        
         motor_data = 0;
-        TIM4->CNT = 0;  // Restart the timer
-        // TIM4->EGR |= 1<<6;
-        TIM4->CR1 |= 1; // Start the timer
     }
 }
 
@@ -198,13 +211,16 @@ void TIM4_IRQHandler() {
     }
 }
 
-void DMA1_Stream0_IRQHandler()
+void DMA2_Stream6_IRQHandler()
 {
-    if (DMA1->LISR & (1 << 5)) // If transfer complete interrupt
+    if (DMA2->HISR & (1 << 21)) // If transfer complete interrupt
     {
-        DMA1->LIFCR |= (1 << 5); // Clear the interrupt
-        __NVIC_DisableIRQ(DMA1_Stream0_IRQn);
-        GPIOB->ODR ^= (1 << 7); // Toggle pin for testing
+        DMA2->HIFCR |= (1 << 21); // Clear the interrupt
+        TIM1->CR1 &= ~1; // Stop the timer
+        TIM1->CNT = 0; // Reset the timer counter
+
+        __NVIC_DisableIRQ(DMA2_Stream6_IRQn);
+
         for (int i = 0; i < TelemetrySize; i++) {
             motor_data = (motor_data << 1) | ((motor_data_buffer[i] & current_motor)); // Shift in the new bit
             motor_data_buffer[i] = 0;
@@ -212,59 +228,60 @@ void DMA1_Stream0_IRQHandler()
 
         dshotMotor* currentMotor = motor1;
 
-        // switch (current_motor) {
-        //     case Motor1Pin:
-        //         currentMotor = motor1;
-        //         break;
-        //     case Motor2Pin:
-        //         currentMotor = motor2;
-        //         break;
-        //     case Motor3Pin:
-        //         currentMotor = motor3;
-        //         break;
-        //     case Motor4Pin:
-        //         currentMotor = motor4;
-        //         break;
-        //     default:
-        //         currentMotor = motor1; // Default to motor1 if no match
-        // }
+        switch (current_motor) {
+            case Motor1Pin:
+                currentMotor = motor1;
+                break;
+            case Motor2Pin:
+                currentMotor = motor2;
+                break;
+            case Motor3Pin:
+                currentMotor = motor3;
+                break;
+            case Motor4Pin:
+                currentMotor = motor4;
+                break;
+            default:
+                currentMotor = motor1; // Default to motor1 if no match
+        }
 
         Decode(motor_data, currentMotor);
 
         // Process the telemetry data in motor_data_buffer
-        // if (!Decode(motor_data, currentMotor)) {
-        //         while (DMA2_Stream0->CR & 1) {
-        //     }
-        //     DMA2_Stream0->NDTR = TelemetrySize;
-        //     DMA2_Stream0->M0AR = (uint32_t)motor_data_buffer;
-        //     return; 
-        // }
+        if (!Decode(motor_data, currentMotor)) {
+                while (DMA2_Stream0->CR & 1) {
+            }
+            DMA2_Stream0->NDTR = TelemetrySize;
+            DMA2_Stream0->M0AR = (uint32_t)motor_data_buffer;
+            return; 
+        }
 
-        // switch (current_motor)
-        // {
-        //     case Motor1Pin:
-        //         current_motor = Motor2Pin;
-        //         break;
-        //     case Motor2Pin:
-        //         current_motor = Motor3Pin;
-        //         break;
-        //     case Motor3Pin:
-        //         current_motor = Motor4Pin;
-        //         break;
-        //     case Motor4Pin:
-        //         current_motor = Motor1Pin;
-        //         break;
-        //     default:
-        //         current_motor = Motor1Pin;
-        // }
+        switch (current_motor)
+        {
+            case Motor1Pin:
+                current_motor = Motor2Pin;
+                break;
+            case Motor2Pin:
+                current_motor = Motor3Pin;
+                break;
+            case Motor3Pin:
+                current_motor = Motor4Pin;
+                break;
+            case Motor4Pin:
+                current_motor = Motor1Pin;
+                break;
+            default:
+                current_motor = Motor1Pin;
+        }
 
         GPIOB->MODER |= (3 << 8); // Set pin to output
 
-        while (DMA2_Stream0->CR & 1) {
+        while (DMA2_Stream6->CR & 1) {
         }
-        DMA2_Stream0->NDTR = TelemetrySize;
-        DMA2_Stream0->M0AR = (uint32_t)motor_data_buffer;
+        DMA2_Stream6->NDTR = TelemetrySize;
+        DMA2_Stream6->M0AR = (uint32_t)motor_data_buffer;
 
-        GPIOB->ODR ^= (1 << 7); // Toggle pin for testing
+        // DMA2_Stream6->CR |= 1; // Restart the DMA transfer
+        // TIM1->CR1 |= 1; // Restart the timer
     }
 }

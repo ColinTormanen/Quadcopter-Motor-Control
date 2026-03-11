@@ -20,8 +20,11 @@ void SPI_Init(void) {
 
     // Configure SPI2
 	SPI2->CR1 = 0;
-	// SPI2->CR1 |= (1<< 11); // 16 bits data frame
+	SPI2->CR1 |= (1<< 11); // 16 bits data frame
 	SPI2->CR2 |= (1 << 0); // Enable RX DMA Request
+	// SPI2->CR1 |= SPI_CR1_SSM; // Software slave management
+    // SPI2->CR1 |= SPI_CR1_SSI; // Internal slave select
+	// SPI2->CR1 |= (1 << 10); // RX only
 
 	// Configure DMA for SPI2 RX
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN;
@@ -32,8 +35,8 @@ void SPI_Init(void) {
 	DMA1_Stream3->CR |= (0 << 6); // Peripheral to memory
 	DMA1_Stream3->CR &= ~(1 << 9); // Peripheral address is fixed
 	DMA1_Stream3->CR |= (1 << 10); // Memory incremented
-	DMA1_Stream3->CR |= (0 << 11); // Peripheral data size
-	DMA1_Stream3->CR |= (0 << 13); // Memory data size
+	DMA1_Stream3->CR |= (1 << 11); // Peripheral data size
+	DMA1_Stream3->CR |= (1 << 13); // Memory data size
 	DMA1_Stream3->CR |= (1 << 4); // Transfer complete interrupt enabled
 
 	DMA1_Stream3->NDTR = 0; // Will be set when starting a transfer

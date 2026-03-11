@@ -28,6 +28,7 @@ set(SOURCES
     src/bidshot.c
     src/motor_control.c
     src/system.c
+    src/spi.c
 
 )
 

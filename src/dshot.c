@@ -59,9 +59,9 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
 
     //               B0      B1      B4        B5    
     GPIOB->MODER    |= 2 | (2<<2) | (2<<8) | (2<<10); // Set Pin 0-3 to alternate function mode'
-    GPIOB->PUPDR    |= 1 | (1<<2) | (1<<8) | (1<<10);; // Enable pull-up resistor
+    GPIOB->PUPDR    |= 1 | (1<<2) | (1<<8) | (1<<10); // Enable pull-up resistor
     // GPIOB->PUPDR    |= 2 | (2<<2) | (2<<8) | (2<<10);; // Enable pull-down resistor
-    GPIOB->OSPEEDR  |= 3 | (3<<2) | (3<<8) | (3<<10);; // High output speed
+    GPIOB->OSPEEDR  |= 3 | (3<<2) | (3<<8) | (3<<10); // High output speed
     GPIOB->AFR[0] &= ~0xFF00FF; // Clear function
     GPIOB->AFR[0] |= (2 | (2<<4) | (2<<16) | (2<<20)); // Set alternate function to AF02, TIM3
 
