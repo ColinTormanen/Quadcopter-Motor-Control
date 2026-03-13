@@ -2,40 +2,56 @@
 #include <stdint.h>
 #include <stm32f411xe.h>
 
-void ConstructDshotFrame(dshotMotor* motor, uint16_t throttle)
+void ConstructDshotFrame(uint16_t* buffer, uint16_t throttleValue)
 {
-    if(motor->updateBuffer)
-        motor->updateBuffer = false;
-
     // Check for max throttle
     // Throttle range is 1-2000
-    if (throttle > 2047) throttle = 2047; 
+    if (throttleValue > 2047) throttleValue = 2047; 
     
-    motor->throttle = throttle;
-
     // Shift to make space for telemetry bit
-    throttle = (throttle << 1)  | 0; // telemetry bit set to 1
+    throttleValue = (throttleValue << 1)  | 0; // telemetry bit set to 1
 
     // Cacluate crc
-    uint16_t crc = ~(throttle ^ (throttle >> 4) ^ (throttle >> 8)) & 0xF;
+    uint16_t crc = ~(throttleValue ^ (throttleValue >> 4) ^ (throttleValue >> 8)) & 0xF;
 
     // Construct the 16 bit frame
-    uint16_t frame = (throttle << 4) | crc;
+    uint16_t frame = (throttleValue << 4) | crc;
     for (int i = 1; i < 17; i++)
     {
         if (frame & (1 << (15 - i)))
         {
-            motor->dshotBuffer2[i] = dshotHigh;
+            buffer[i] = dshotHigh;
         }
         else
         {
-            motor->dshotBuffer2[i] = dshotLow;
+            buffer[i] = dshotLow;
         }
     }
     for (int i = 17; i < dmaTransferSize; i++) 
-        motor->dshotBuffer2[i] = 0; // inter-frame gap
-    motor->dshotBuffer2[0] = 0;
-    
+        buffer[i] = 0; // inter-frame gap
+    buffer[0] = 0;
+}
+
+void ConstructCommandSequence(dshotMotor* motor, uint16_t* commandValues, uint8_t* repeat, uint8_t numCommands) 
+{
+    for (int i = 0; i < numCommands; i++) 
+    {
+        ConstructDshotFrame(motor->commands[i].command, commandValues[i]);
+        motor->commands[i].repeat = repeat[i];
+    }
+    motor->commandIndex = 0;
+    motor->numCommands = numCommands;
+    motor->CommandMode = true;
+}
+
+void ConstructThrottle(dshotMotor* motor, uint16_t throttle) 
+{
+    if(motor->updateBuffer)
+        motor->updateBuffer = false;
+
+    motor->throttle = throttle;
+    ConstructDshotFrame(motor->dshotBuffer2, throttle);
+
     motor->updateBuffer = true;
 }
 
@@ -212,6 +228,15 @@ void InitiMotor(dshotMotor* motor)
         motor->dshotBuffer[i] = 0;
         motor->dshotBuffer2[i] = 0;
     }
-    motor->throttle = 5;
-    ConstructDshotFrame(motor, motor->throttle);
+    motor->throttle = 0;
+
+    // Construct the command sequence to program the ESC, most commands need to be repeated 6 times for the ESC to accept them
+    uint16_t commandValues[3] = {
+        0, // Blank command for ESC to recognize DShot
+        13, // 13: Enable extended telemetry
+        0
+    }; 
+    uint8_t repeat[3] = {100, 6, 0}; 
+    ConstructCommandSequence(motor, commandValues, repeat, 1);
+    ConstructThrottle(motor, 0);
 }

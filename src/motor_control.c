@@ -5,7 +5,6 @@
 
 // NOTE:
 // This implementation has a prototype Bi-Directional DSHOT telemetry decoder
-// To Enable telemetry reading, uncomment the EXTI interrupts in the DMA interrupt handlers
 
 // Provide single definitions for the motor objects and pointers declared extern
 // in the header.
@@ -57,11 +56,10 @@ void StopMotors() {
 }
 
 void SetMotorThrottle(dshotMotor *motor, uint16_t throttle) {
-
     // Cap throttle to valid range
-    if(throttle > 2048)
-        throttle = 2048;
-    ConstructDshotFrame(motor, throttle);
+    if(throttle > 2047)
+        throttle = 2047;
+    ConstructThrottle(motor, throttle);
 }
 
 // This function can be used to keep the motors running in the background
@@ -94,12 +92,31 @@ void DMA1_Stream4_IRQHandler() {
     {
         DMA1->HIFCR |= (1 << 5); // Clear the interrupt
 
-        if (motor1->updateBuffer) {
+        // If we're in command mode, load the next command sequence into the buffer
+        if (motor1->CommandMode && motor1->numCommands > 0)
+        {
+            for (int i = 0; i < dmaTransferSize; i++) {
+                motor1->dshotBuffer[i] = motor1->commands[motor1->commandIndex].command[i];
+            }
+            motor1->commands[motor1->commandIndex].repeat--;
+
+            // If the command has been repeated enough times, move to the next command
+            if (motor1->commands[motor1->commandIndex].repeat == 0) {
+                motor1->commandIndex++;
+                if (motor1->commandIndex >= motor1->numCommands) {
+                    motor1->CommandMode = false;
+                    motor1->commandIndex = 0;
+                    motor1->numCommands = 0;
+                }
+            }
+        }
+        else if (motor1->updateBuffer) { // If not command mode, check if we need to update the throttle
             for (int i = 0; i < dmaTransferSize; i++) {
                 motor1->dshotBuffer[i] = motor1->dshotBuffer2[i];
             }
             motor1->updateBuffer = false;
         }
+
         while (DMA1_Stream4->CR & 1) {
         }
         DMA1_Stream4->NDTR = dmaTransferSize;
@@ -107,6 +124,7 @@ void DMA1_Stream4_IRQHandler() {
 
         GPIOB->MODER |= (2 << 8);
         DMA1_Stream4->CR |= 1;
+        __NVIC_DisableIRQ(EXTI4_IRQn);
     } else if (DMA1->HISR & (1 << 4)) // If half transfer interrupt
     {
         DMA1->HIFCR |= (1 << 4); // Clear the interrupt
@@ -123,7 +141,23 @@ void DMA1_Stream5_IRQHandler() {
     {
         DMA1->HIFCR |= (1 << 11); // Clear the interrupt
 
-        if (motor2->updateBuffer) {
+        if (motor2->CommandMode && motor2->numCommands > 0)
+        {
+            for (int i = 0; i < dmaTransferSize; i++) {
+                motor2->dshotBuffer[i] = motor2->commands[motor2->commandIndex].command[i];
+            }
+            motor2->commands[motor2->commandIndex].repeat--;
+
+            if (motor2->commands[motor2->commandIndex].repeat == 0) {
+                motor2->commandIndex++;
+                if (motor2->commandIndex >= motor2->numCommands) {
+                    motor2->CommandMode = false;
+                    motor2->commandIndex = 0;
+                    motor2->numCommands = 0;
+                }
+            }
+        }
+        else if (motor2->updateBuffer) {
             for (int i = 0; i < dmaTransferSize; i++) {
                 motor2->dshotBuffer[i] = motor2->dshotBuffer2[i];
             }
@@ -136,13 +170,14 @@ void DMA1_Stream5_IRQHandler() {
 
         GPIOB->MODER |= (2 << 10);
         DMA1_Stream5->CR |= 1;
+        __NVIC_DisableIRQ(EXTI9_5_IRQn);
     } else if (DMA1->HISR & (1 << 10)) // If half transfer interrupt
     {
         DMA1->HIFCR |= (1 << 10); // Clear the interrupt
 
         GPIOB->MODER &= ~(3 << 10); // Set pin to input
         EXTI->PR |= (1 << 5);       // Clear the interrupt
-        // __NVIC_EnableIRQ(EXTI9_5_IRQn);
+        __NVIC_EnableIRQ(EXTI9_5_IRQn);
     }
 }
 
@@ -152,7 +187,23 @@ void DMA1_Stream7_IRQHandler() {
     {
         DMA1->HIFCR |= (1 << 27); // Clear the interrupt
 
-        if (motor3->updateBuffer) {
+        if (motor3->CommandMode && motor3->numCommands > 0)
+        {
+            for (int i = 0; i < dmaTransferSize; i++) {
+                motor3->dshotBuffer[i] = motor3->commands[motor3->commandIndex].command[i];
+            }
+            motor3->commands[motor3->commandIndex].repeat--;
+
+            if (motor3->commands[motor3->commandIndex].repeat == 0) {
+                motor3->commandIndex++;
+                if (motor3->commandIndex >= motor3->numCommands) {
+                    motor3->CommandMode = false;
+                    motor3->commandIndex = 0;
+                    motor3->numCommands = 0;
+                }
+            }
+        }
+        else if (motor3->updateBuffer) {
             for (int i = 0; i < dmaTransferSize; i++) {
                 motor3->dshotBuffer[i] = motor3->dshotBuffer2[i];
             }
@@ -165,13 +216,14 @@ void DMA1_Stream7_IRQHandler() {
 
         GPIOB->MODER |= (2 << 0);
         DMA1_Stream7->CR |= 1;
+        __NVIC_DisableIRQ(EXTI0_IRQn);
     } else if (DMA1->HISR & (1 << 26)) // If half transfer interrupt
     {
         DMA1->HIFCR |= (1 << 26); // Clear the interrupt
 
         GPIOB->MODER &= ~(3 << 0); // Set pin to input
         EXTI->PR |= (1 << 0);      // Clear the interrupt
-        // __NVIC_EnableIRQ(EXTI0_IRQn);
+        __NVIC_EnableIRQ(EXTI0_IRQn);
     }
 }
 
@@ -181,7 +233,23 @@ void DMA1_Stream2_IRQHandler() {
     if (DMA1->LISR & (1 << 21)) {
         DMA1->LIFCR |= (1 << 21); // Clear the interrupt
 
-        if (motor4->updateBuffer) {
+        if (motor4->CommandMode && motor4->numCommands > 0)
+        {
+            for (int i = 0; i < dmaTransferSize; i++) {
+                motor4->dshotBuffer[i] = motor4->commands[motor4->commandIndex].command[i];
+            }
+            motor4->commands[motor4->commandIndex].repeat--;
+
+            if (motor4->commands[motor4->commandIndex].repeat == 0) {
+                motor4->commandIndex++;
+                if (motor4->commandIndex >= motor4->numCommands) {
+                    motor4->CommandMode = false;
+                    motor4->commandIndex = 0;
+                    motor4->numCommands = 0;
+                }
+            }
+        }
+        else if (motor4->updateBuffer) {
             for (int i = 0; i < dmaTransferSize; i++) {
                 motor4->dshotBuffer[i] = motor4->dshotBuffer2[i];
             }
@@ -194,13 +262,14 @@ void DMA1_Stream2_IRQHandler() {
 
         GPIOB->MODER |= (2 << 2);
         DMA1_Stream2->CR |= 1;
+        __NVIC_DisableIRQ(EXTI1_IRQn);
     } else if (DMA1->LISR & (1 << 20)) // If half transfer interrupt
     {
         DMA1->LIFCR |= (1 << 20); // Clear the interrupt
 
         GPIOB->MODER &= ~(3 << 2); // Set pin to input
         EXTI->PR |= (1 << 1);      // Clear the interrupt
-        // __NVIC_EnableIRQ(EXTI1_IRQn);
+        __NVIC_EnableIRQ(EXTI1_IRQn);
     }
 }
 

@@ -7,10 +7,10 @@
 #define pollTimerWidth 128
 
 #define TelemetrySize 20 // Technically, there are 21 bits in the telemetry frame, but the first bit is always 0, and it missed by the polling
-#define Motor1Pin 4
-#define Motor2Pin 5
-#define Motor3Pin 0
-#define Motor4Pin 1
+#define Motor1Pin 0b10000
+#define Motor2Pin 0b100000
+#define Motor3Pin 0b1
+#define Motor4Pin 0b10
 
 int motor_counter = 0;
 int motor_data = 0;
@@ -120,16 +120,17 @@ int Decode(int data, dshotMotor *motor) {
     }
     int crc = telemetry & 0xF;
     telemetry = telemetry >> 4 & 0xFFF;
-    uint16_t calc_crc =
-        ~(telemetry ^ (telemetry >> 4) ^ (telemetry >> 8)) & 0xF;
+    uint16_t calc_crc = (~(telemetry ^ (telemetry >> 4) ^ (telemetry >> 8))) & 0xF;
     if (crc != calc_crc) {
         return 0;
     }
 
     if (telemetry & (1 << 8)) {
-        uint16_t data = telemetry & 0xFF;
+        uint16_t data = telemetry & 0x1FF;
         uint8_t exp = (telemetry >> 9) & 0x7;
-        motor->eRPM = data << exp;
+        uint16_t period = (data << exp) * 7; // Period of one rotation in microseconds, 14 poles, so multiply by 7 to get the period of one electrical rotation
+        motor->RPM = (60000000 / period); // Convert period to RPM
+        
     } else {
         uint16_t data = telemetry & 0xFF;
         uint8_t type = (telemetry >> 8) & 0xF;
@@ -211,6 +212,8 @@ void TIM4_IRQHandler() {
     }
 }
 
+// Motor telemetry DMA interrupt handler
+// This is triggered after all telemetry bits have been read
 void DMA2_Stream6_IRQHandler()
 {
     if (DMA2->HISR & (1 << 21)) // If transfer complete interrupt
@@ -222,7 +225,11 @@ void DMA2_Stream6_IRQHandler()
         __NVIC_DisableIRQ(DMA2_Stream6_IRQn);
 
         for (int i = 0; i < TelemetrySize; i++) {
-            motor_data = (motor_data << 1) | ((motor_data_buffer[i] & current_motor)); // Shift in the new bit
+            if (motor_data_buffer[i] & current_motor) {
+                motor_data = (motor_data << 1) | 1; // Shift in the new bit
+            } else {
+                motor_data = (motor_data << 1); // Shift in a 0 bit
+            }
             motor_data_buffer[i] = 0;
         }
 
@@ -260,28 +267,34 @@ void DMA2_Stream6_IRQHandler()
         {
             case Motor1Pin:
                 current_motor = Motor2Pin;
+                DMA1_Stream4->CR &= ~(1<<3); // Disable half transfer interrupt for motor 1
+                DMA1_Stream5->CR |= (1<<3); // Enable half transfer interrupt for motor 2
                 break;
             case Motor2Pin:
                 current_motor = Motor3Pin;
+                DMA1_Stream5->CR &= ~(1<<3); // Disable half transfer interrupt for motor 2
+                DMA1_Stream7->CR |= (1<<3); // Enable half transfer interrupt for motor 3
                 break;
             case Motor3Pin:
                 current_motor = Motor4Pin;
+                DMA1_Stream7->CR &= ~(1<<3); // Disable half transfer interrupt for motor 3
+                DMA1_Stream2->CR |= (1<<3); // Enable half transfer interrupt for motor 4
                 break;
             case Motor4Pin:
                 current_motor = Motor1Pin;
+                DMA1_Stream2->CR &= ~(1<<3); // Disable half transfer interrupt for motor 4
+                DMA1_Stream4->CR |= (1<<3); // Enable half transfer interrupt for motor 1
                 break;
             default:
                 current_motor = Motor1Pin;
+                DMA1_Stream4->CR &= ~(1<<3); // Disable half transfer interrupt for motor 1
+                DMA1_Stream5->CR |= (1<<3); // Enable half transfer interrupt for motor 2
+                break;
         }
-
-        GPIOB->MODER |= (3 << 8); // Set pin to output
 
         while (DMA2_Stream6->CR & 1) {
         }
         DMA2_Stream6->NDTR = TelemetrySize;
         DMA2_Stream6->M0AR = (uint32_t)motor_data_buffer;
-
-        // DMA2_Stream6->CR |= 1; // Restart the DMA transfer
-        // TIM1->CR1 |= 1; // Restart the timer
     }
 }

@@ -25,6 +25,20 @@ void InitSpi()
     SPI2->CR1 |= SPI_CR1_SPE; // Enable the SPI peripheral
 }
 
+void MotorStartupSequence()
+{
+    StartMotors();
+
+    BusyWait(MotorStartDelay);
+
+    SetMotorThrottle(motor1, 48);
+    SetMotorThrottle(motor2, 48);
+    SetMotorThrottle(motor3, 48);
+    SetMotorThrottle(motor4, 48);
+
+    BusyWait(MotorStartDelay);
+}
+
 int main() 
 {
     SystemClock_Config_100MHz_HSE();
@@ -33,41 +47,51 @@ int main()
     LedOff();
     InitMotors();
     InitBidshot();
-    StartMotors();
-
-    BusyWait(MotorStartDelay);
 
     LedOn();
-
-    
-    SetMotorThrottle(motor1, 48);
-    BusyWait(100000);
 
     // InitSpi();
     while(1)
     {
+        uint16_t rpmLog[1000];
+        for (int i = 0; i < 1000; i++) {
+            rpmLog[i] = 0;
+        }
+        int index = 0;
         
-        // for (int i = 48; i <= 100; i++)
-        // {
-        //     SetMotorThrottle(motor1, i);
-        //     SetMotorThrottle(motor2, i);
-        //     SetMotorThrottle(motor3, i);
-        //     SetMotorThrottle(motor4, i);
-        //     for(volatile int i = 0; i < 5000000; i++); // delay
-        //     ToggleLed();
-        // }
+        for (int i = 50; i <= 1000; i+=50)
+        {
+            SetMotorThrottle(motor1, i);
+            SetMotorThrottle(motor2, i);
+            SetMotorThrottle(motor3, i);
+            SetMotorThrottle(motor4, i);
+            for(volatile int i = 0; i < 5000000; i++); // delay
+            ToggleLed();
+            rpmLog[index] = motor1->RPM;
+            index++;
+        }
 
-        // BusyWait(100000);
-        // for (int i = 48; i <= 200; i++)
-        // {
-        //     SetMotorThrottle(motor1, i);
-        //     SetMotorThrottle(motor2, i);
-        //     SetMotorThrottle(motor3, i);
-        //     SetMotorThrottle(motor4, i);
-        //     for(volatile int i = 0; i < 5000000; i++); // delay
-        //     ToggleLed();
-        // }
+        BusyWait(100000);
+        for (int i = 1000; i >= 50; i-=50)
+        {
+            SetMotorThrottle(motor1, i);
+            SetMotorThrottle(motor2, i);
+            SetMotorThrottle(motor3, i);
+            SetMotorThrottle(motor4, i);
+            for(volatile int i = 0; i < 5000000; i++); // delay
+            ToggleLed();
+            rpmLog[index] = motor1->RPM;
+            index++;
+        }
+        index = 0;
         
+
+        // Motor throttle value is controlled via SPI
+        // Main loop just checks Emergency Stop GPIO pin and cuts throttle if it's triggered
+        // if (GPIOA->IDR & 1) // If the emergency stop button is pressed
+        // {
+        //     StopMotors();
+        // }
     }
 
     return 0;

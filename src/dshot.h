@@ -14,6 +14,11 @@
 #include <stdint.h>
 
 typedef struct {
+    uint16_t command[dmaTransferSize];
+    uint8_t repeat;
+} dshotCommand;
+
+typedef struct {
     uint8_t updateBuffer;
     uint16_t dshotBuffer[dmaTransferSize];
     uint16_t dshotBuffer2[dmaTransferSize];
@@ -21,10 +26,16 @@ typedef struct {
     uint16_t temperature;
     uint16_t voltage;
     uint16_t current;
-    uint16_t eRPM;
+    uint16_t RPM;
+    uint8_t CommandMode;
+    dshotCommand commands[3]; // Should never need more than 3 commands
+    uint8_t numCommands; // Number of commands in the buffer
+    uint8_t commandIndex; // Index of the current command being executed
 } dshotMotor;
 
-void ConstructDshotFrame(dshotMotor* motor, uint16_t throttle);
+void ConstructCommandSequence(dshotMotor* motor, uint16_t* commandValues, uint8_t* repeat, uint8_t numCommands);
+
+void ConstructThrottle(dshotMotor* motor, uint16_t throttle);
 
 void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshotMotor* motor4);
 
