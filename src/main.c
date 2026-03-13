@@ -25,6 +25,12 @@ void InitSpi()
     SPI2->CR1 |= SPI_CR1_SPE; // Enable the SPI peripheral
 }
 
+/*  Startup sequence:
+    1. Send any commands to program the ESC if needed, in this case, enable extended telemetry
+    2. Send 0 throttle for ~1 second to arm the ESC
+    3. Send throttle value of 48 to start motors
+    4. Motors are now armed
+*/
 void MotorStartupSequence()
 {
     StartMotors();
@@ -97,6 +103,8 @@ int main()
     return 0;
 }
 
+// SPI transfer complete interrupt handler
+// This funciton is used to update the motor throttle values after receiving new data over SPI
 void DMA1_Stream3_IRQHandler()
 {
     if (DMA1->LISR & (1 << 27)) // If transfer complete interrupt

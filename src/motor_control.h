@@ -11,12 +11,16 @@ extern dshotMotor* motor2;
 extern dshotMotor* motor3;
 extern dshotMotor* motor4;
 
+// Initializes the motors and the dshot buffers
 void InitMotors();
 
+// Enable the timer and DMA streams to start the motors
 void StartMotors();
 
+// Disables the timer and DMA streams to stop the motors
 void StopMotors();
 
+// Set the motor throttle, 48-2047 are valid throttle values
 void SetMotorThrottle(dshotMotor* motor, uint16_t throttle);
 
 // This function can be used to keep the motors running in the background

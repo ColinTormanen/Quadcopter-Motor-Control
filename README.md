@@ -1,6 +1,16 @@
 # STM32F411 Quadcopter Motor Control
 
-A bare-metal C implementation for Quadmotor control using DShot
+A bare-metal C implementation for quadcopter motor control using DShot and Bi-directional DShot protocols on the STM32F411 microcontroller.
+
+## Features
+
+- **DShot Protocol Implementation**: Full DShot600 support for high-speed motor control
+- **Bi-directional DShot**: Telemetry support for reading motor data (RPM, voltage, current, temperature)
+- **Quad Motor Control**: Simultaneous control of 4 motors using DMA for efficient PWM generation
+- **Command Mode**: ESC programming and configuration commands (e.g., enable extended telemetry)
+- **Bare-metal C**: No HAL libraries, direct register manipulation for optimal performance
+- **DMA-based PWM**: Hardware-accelerated motor signal generation
+- **Interrupt-driven**: Efficient handling of motor updates and telemetry reception
 
 ## Prerequisites
 
@@ -24,9 +34,29 @@ sudo apt install gcc-arm-none-eabi cmake openocd gdb-multiarch make
 ## Hardware Requirements
 - STM32F411 development board (e.g., STM32F411CE "Black Pill")
 - ST-Link V2 programmer/debugger
+- 4x Brushless DC motors with ESCs supporting DShot
+- Power supply appropriate for your motors (typically 11.1V-25.2V LiPo)
 - USB cables for power and programming
 
-``
+## Hardware Connections
+
+### ST-Link to STM32F411
+| ST-Link Pin | STM32F411 Pin | Function |
+|-------------|---------------|----------|
+| SWDIO       | PA13          | SWD Data |
+| SWCLK       | PA14          | SWD Clock|
+| GND         | GND           | Ground   |
+| 3.3V        | 3.3V          | Power    |
+
+### Motor Connections
+| Motor | STM32F411 Pin | Timer Channel | DMA Stream |
+|-------|---------------|---------------|------------|
+| Motor 1 | PB4          | TIM3 CH1     | DMA1 Stream 4 |
+| Motor 2 | PB5          | TIM3 CH2     | DMA1 Stream 5 |
+| Motor 3 | PB0          | TIM3 CH3     | DMA1 Stream 7 |
+| Motor 4 | PB1          | TIM3 CH4     | DMA1 Stream 2 |
+
+**Note**: Ensure ESCs are properly calibrated and armed before connecting motors. Always test with props removed first.
 
 ## Building the Project
 
@@ -46,7 +76,7 @@ make
 ```
 
 This creates:
-- `stm32f411_project` - ELF file with debug symbols (used for flashing and debugging)
+- `QuadcopterMotorControl` - ELF file with debug symbols (used for flashing and debugging)
 
 ## Flashing the Firmware
 
@@ -57,7 +87,7 @@ make flash
 
 ### Method 2: Manual OpenOCD Command
 ```bash
-openocd -f interface/stlink.cfg -f target/stm32f4x.cfg -c "program stm32f411_project verify reset exit"
+openocd -f interface/stlink.cfg -f target/stm32f4x.cfg -c "program QuadcopterMotorControl verify reset exit"
 ```
 
 ## Debugging
@@ -81,7 +111,7 @@ openocd -f interface/stlink.cfg -f target/stm32f4x.cfg
 
 **Terminal 2 - Connect GDB:**
 ```bash
-gdb stm32f411_project
+gdb QuadcopterMotorControl
 (gdb) target extended-remote localhost:3333
 (gdb) load
 (gdb) monitor reset halt
@@ -132,6 +162,76 @@ gdb stm32f411_project
 # Ctrl+C in OpenOCD terminal to stop server
 ```
 
+## Usage
+
+### Basic Motor Control
+
+```c
+#include "motor_control.h"
+
+// Initialize motors
+InitMotors();
+
+// Start motor control (enables DMA and timers)
+StartMotors();
+
+// Set motor throttle (0-2047 range)
+SetMotorThrottle(motor1, 500);  // 500/2047 throttle on motor 1
+SetMotorThrottle(motor2, 750);  // 750/2047 throttle on motor 2
+
+// Stop motors
+StopMotors();
+```
+
+### Command Mode (ESC Programming)
+
+```c
+#include "dshot.h"
+
+// Example: Enable extended telemetry on motor 1
+uint16_t commands[] = {13};  // Command 13: Enable extended telemetry
+uint8_t repeats[] = {6};     // Repeat 6 times for ESC to accept
+ConstructCommandSequence(motor1, commands, repeats, 1);
+```
+
+### Telemetry Reading
+
+The implementation includes structures for reading motor telemetry:
+- RPM
+- Voltage
+- Current
+- Temperature
+
+*(Telemetry decoding implementation in progress)*
+
+## Project Structure
+
+```
+├── CMakeLists.txt          # Build configuration
+├── README.md              # This file
+├── build/                 # Build artifacts (generated)
+├── cmake/
+│   └── stm32f411.cmake    # STM32F411 toolchain configuration
+├── inc/                   # Header files
+│   ├── core_cm4.h
+│   ├── stm32f411xe.h
+│   └── ...
+├── linker/
+│   └── STM32F411CEUx_FLASH.ld  # Linker script
+└── src/                   # Source files
+    ├── main.c             # Main application
+    ├── motor_control.c    # Motor control functions
+    ├── motor_control.h
+    ├── dshot.c            # DShot protocol implementation
+    ├── dshot.h
+    ├── spi.c              # SPI for telemetry (future)
+    ├── spi.h
+    ├── system_stm32f4xx.c # System initialization
+    ├── system.c           # Clock and peripheral setup
+    ├── system.h
+    └── startup_stm32f411xe.s  # Startup assembly
+```
+
 ## Troubleshooting
 
 ### Build Issues
@@ -144,28 +244,24 @@ gdb stm32f411_project
 - **Permission denied**: Add user to `dialout` group or use `sudo`
 - **Target not found**: Verify ST-Link connection to STM32
 
+### Motor Control Issues
+- **Motors not spinning**: Check ESC calibration and arming sequence
+- **Noisy motors**: Verify DShot timing and DMA configuration
+- **Telemetry not working**: Ensure ESCs support bi-directional DShot
+- **Overheating**: Check power supply voltage and current limits
+
 ### Debug Issues
 - **Cannot connect to target**: Check ST-Link connection and OpenOCD output
 - **No debugging symbols**: Ensure build includes `-g3` flag
 - **GDB crashes**: Try `gdb-multiarch` instead of regular `gdb`
 
-## Hardware Connections
+## Safety Notes
 
-### ST-Link to STM32F411
-| ST-Link Pin | STM32F411 Pin | Function |
-|-------------|---------------|----------|
-| SWDIO       | PA13          | SWD Data |
-| SWCLK       | PA14          | SWD Clock|
-| GND         | GND           | Ground   |
-| 3.3V        | 3.3V          | Power    |
-
-## Project Features
-
-- **Bare metal C programming** - No HAL or external libraries
-- **LED blink on PC13** - Simple GPIO control demonstration
-- **Full debug support** - Source-level debugging with GDB
-- **Optimized build system** - CMake with ARM toolchain
-- **Memory efficient** - Minimal resource usage
+- **Always remove propellers** when testing motor control code
+- **Verify ESC calibration** before connecting motors
+- **Use appropriate power supplies** to avoid damaging ESCs or motors
+- **Monitor temperatures** during operation
+- **Test incrementally** - start with low throttle values
 
 ## Expanding the Project
 
@@ -176,8 +272,10 @@ To add more source files:
    ```cmake
    set(SOURCES
        src/main.c
+       src/motor_control.c
+       src/dshot.c
        src/new_file.c
-       src/startup_stm32f411xx.s
+       src/startup_stm32f411xe.s
    )
    ```
 

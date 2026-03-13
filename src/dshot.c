@@ -234,9 +234,9 @@ void InitiMotor(dshotMotor* motor)
     uint16_t commandValues[3] = {
         0, // Blank command for ESC to recognize DShot
         13, // 13: Enable extended telemetry
-        0
+        12 // 12: Saves settings to eeprom
     }; 
-    uint8_t repeat[3] = {100, 6, 0}; 
+    uint8_t repeat[3] = {100, 6, 6}; 
     ConstructCommandSequence(motor, commandValues, repeat, 1);
     ConstructThrottle(motor, 0);
 }
