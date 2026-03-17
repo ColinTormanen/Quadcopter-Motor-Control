@@ -18,7 +18,7 @@ void ConstructDshotFrame(uint16_t* buffer, uint16_t throttleValue)
     uint16_t frame = (throttleValue << 4) | crc;
     for (int i = 1; i < 17; i++)
     {
-        if (frame & (1 << (15 - i)))
+        if (frame & (1 << (16 - i)))
         {
             buffer[i] = dshotHigh;
         }
