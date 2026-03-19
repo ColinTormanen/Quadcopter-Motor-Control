@@ -2,14 +2,16 @@
 #define MOTOR_CONTROL_H
 #include "dshot.h"
 
-#define throttleMin 47
-#define throttleMax 1023
+#define throttleMin 48
+#define throttleMax 2047
 
 // Declare motor pointers as extern to avoid multiple definitions across translation units
 extern dshotMotor* motor1;
 extern dshotMotor* motor2;
 extern dshotMotor* motor3;
 extern dshotMotor* motor4;
+
+extern uint8_t next_motor;
 
 // Initializes the motors and the dshot buffers
 void InitMotors();

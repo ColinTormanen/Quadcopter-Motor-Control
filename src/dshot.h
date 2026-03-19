@@ -7,7 +7,7 @@
 #define dshotLow 15
 
 // DShot is 16 bits. The rest are used for inter-frame gap 
-#define dmaTransferSize 48
+#define dmaTransferSize 52
 #define true 1
 #define false 0
 
@@ -28,9 +28,10 @@ typedef struct {
     uint16_t current;
     uint16_t RPM;
     uint8_t CommandMode;
-    dshotCommand commands[3]; // Should never need more than 3 commands
+    dshotCommand commands[10]; // Should never need more than 10 commands
     uint8_t numCommands; // Number of commands in the buffer
     uint8_t commandIndex; // Index of the current command being executed
+    uint32_t interruptCounter;
 } dshotMotor;
 
 void ConstructCommandSequence(dshotMotor* motor, uint16_t* commandValues, uint8_t* repeat, uint8_t numCommands);

@@ -3,7 +3,7 @@
 
 void SPI_Init(void) {
     // Enable clocks
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN; // GPIO B
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN; // GPIO B
     RCC->APB1ENR |= RCC_APB1ENR_SPI2EN;  // SPI2
 
     // Configure pins B13(SCK), B15(MOSI) as alternate function
@@ -16,6 +16,11 @@ void SPI_Init(void) {
 
     // Set high speed
     GPIOB->OSPEEDR |= (3 << (13 * 2)) | (3 << (15 * 2)); // High speed
+
+	// Set C14 to output for status and C15 to input for On/Off
+	GPIOC->MODER |= (1 << (14 * 2)); // Output mode for C14
+	GPIOC->MODER &= ~(3 << (15 * 2)); // Clear mode bits for C15
+	GPIOC->PUPDR |= (2 << (14 * 2)) | (2 << (15 * 2)); // Pull-down
 
 
     // Configure SPI2

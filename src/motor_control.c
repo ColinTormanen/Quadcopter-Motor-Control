@@ -4,7 +4,7 @@
 #include <stm32f411xe.h>
 
 // NOTE:
-// This implementation has a prototype Bi-Directional DSHOT telemetry decoder
+// This implementation has a Bi-Directional DSHOT telemetry decoder
 
 // Provide single definitions for the motor objects and pointers declared extern
 // in the header.
@@ -17,6 +17,8 @@ dshotMotor *motor1 = &motor1_obj;
 dshotMotor *motor2 = &motor2_obj;
 dshotMotor *motor3 = &motor3_obj;
 dshotMotor *motor4 = &motor4_obj;
+
+uint8_t next_motor = 0; // Tracks which motor (0-3) should be serviced next
 
 void InitMotors() {
     InitiMotor(motor1);
@@ -57,8 +59,10 @@ void StopMotors() {
 
 void SetMotorThrottle(dshotMotor *motor, uint16_t throttle) {
     // Cap throttle to valid range
-    if(throttle > 2047)
-        throttle = 2047;
+    if(throttle > throttleMax)
+        throttle = throttleMax;
+    else if (throttle < throttleMin)
+        throttle = throttleMin;
     ConstructThrottle(motor, throttle);
 }
 
@@ -122,7 +126,7 @@ void DMA1_Stream4_IRQHandler() {
         DMA1_Stream4->NDTR = dmaTransferSize;
         DMA1_Stream4->M0AR = (uint32_t)motor1->dshotBuffer;
 
-        GPIOB->MODER |= (2 << 8);
+        GPIOB->MODER |= (2 << 8); // Set pin to Alternate function
         DMA1_Stream4->CR |= 1;
         __NVIC_DisableIRQ(EXTI4_IRQn);
     } else if (DMA1->HISR & (1 << 4)) // If half transfer interrupt
@@ -131,7 +135,9 @@ void DMA1_Stream4_IRQHandler() {
 
         GPIOB->MODER &= ~(3 << 8); // Set pin to input
         EXTI->PR |= (1 << 4);      // Clear the interrupt
-        __NVIC_EnableIRQ(EXTI4_IRQn);
+        if (next_motor == 0) {
+            __NVIC_EnableIRQ(EXTI4_IRQn);
+        }
     }
 }
 
@@ -168,7 +174,7 @@ void DMA1_Stream5_IRQHandler() {
         DMA1_Stream5->NDTR = dmaTransferSize;
         DMA1_Stream5->M0AR = (uint32_t)motor2->dshotBuffer;
 
-        GPIOB->MODER |= (2 << 10);
+        GPIOB->MODER |= (2 << 10); // Set pin to Alternate function
         DMA1_Stream5->CR |= 1;
         __NVIC_DisableIRQ(EXTI9_5_IRQn);
     } else if (DMA1->HISR & (1 << 10)) // If half transfer interrupt
@@ -177,7 +183,9 @@ void DMA1_Stream5_IRQHandler() {
 
         GPIOB->MODER &= ~(3 << 10); // Set pin to input
         EXTI->PR |= (1 << 5);       // Clear the interrupt
-        __NVIC_EnableIRQ(EXTI9_5_IRQn);
+        if (next_motor == 1) {
+            __NVIC_EnableIRQ(EXTI9_5_IRQn);
+        }
     }
 }
 
@@ -214,7 +222,7 @@ void DMA1_Stream7_IRQHandler() {
         DMA1_Stream7->NDTR = dmaTransferSize;
         DMA1_Stream7->M0AR = (uint32_t)motor3->dshotBuffer;
 
-        GPIOB->MODER |= (2 << 0);
+        GPIOB->MODER |= (2 << 0); // Set pin to Alternate function
         DMA1_Stream7->CR |= 1;
         __NVIC_DisableIRQ(EXTI0_IRQn);
     } else if (DMA1->HISR & (1 << 26)) // If half transfer interrupt
@@ -223,7 +231,9 @@ void DMA1_Stream7_IRQHandler() {
 
         GPIOB->MODER &= ~(3 << 0); // Set pin to input
         EXTI->PR |= (1 << 0);      // Clear the interrupt
-        __NVIC_EnableIRQ(EXTI0_IRQn);
+        if (next_motor == 2) {
+            __NVIC_EnableIRQ(EXTI0_IRQn);
+        }
     }
 }
 
@@ -260,7 +270,7 @@ void DMA1_Stream2_IRQHandler() {
         DMA1_Stream2->NDTR = dmaTransferSize;
         DMA1_Stream2->M0AR = (uint32_t)motor4->dshotBuffer;
 
-        GPIOB->MODER |= (2 << 2);
+        GPIOB->MODER |= (2 << 2); // Set pin to Alternate function
         DMA1_Stream2->CR |= 1;
         __NVIC_DisableIRQ(EXTI1_IRQn);
     } else if (DMA1->LISR & (1 << 20)) // If half transfer interrupt
@@ -269,7 +279,9 @@ void DMA1_Stream2_IRQHandler() {
 
         GPIOB->MODER &= ~(3 << 2); // Set pin to input
         EXTI->PR |= (1 << 1);      // Clear the interrupt
-        __NVIC_EnableIRQ(EXTI1_IRQn);
+        if (next_motor == 3) {
+            __NVIC_EnableIRQ(EXTI1_IRQn);
+        }
     }
 }
 

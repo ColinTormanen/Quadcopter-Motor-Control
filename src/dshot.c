@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stm32f411xe.h>
 
+// Creates the DShot PWM frame for a given throttle value
 void ConstructDshotFrame(uint16_t* buffer, uint16_t throttleValue)
 {
     // Check for max throttle
@@ -82,7 +83,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     GPIOB->AFR[0] |= (2 | (2<<4) | (2<<16) | (2<<20)); // Set alternate function to AF02, TIM3
 
 // ============================================================================================ //
- // ===================== Initialize Timer ==================================================== //
+// ===================== Initialize Timer ===================================================== //
 // ============================================================================================ //
     RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Enable clock for TIM3
 
@@ -184,7 +185,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     DMA1_Stream7->CR |= (1<<11); // Periph data size 16 bits
     DMA1_Stream7->CR |= (1<<13); // Mem size 16 bits
     DMA1_Stream7->CR |= (1<<4); // Transfer complete interrupt enabled
-    DMA1_Stream7->CR |= (1<<3); // Half transfer interrupt enabled
+    // DMA1_Stream7->CR |= (1<<3); // Half transfer interrupt enabled
     // DMA1_Stream7->CR |= (1<<8); // Enable circular mode for testing
 
     DMA1_Stream7->NDTR = dmaTransferSize; // Buffer size to transfer
@@ -209,7 +210,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     DMA1_Stream2->CR |= (1<<11); // Periph data size 16 bits
     DMA1_Stream2->CR |= (1<<13); // Mem size 16 bits
     DMA1_Stream2->CR |= (1<<4); // Transfer complete interrupt enabled
-    DMA1_Stream2->CR |= (1<<3); // Half transfer interrupt enabled
+    // DMA1_Stream2->CR |= (1<<3); // Half transfer interrupt enabled
     // DMA1_Stream2->CR |= (1<<8); // Enable circular mode for testing
 
     DMA1_Stream2->NDTR = dmaTransferSize; // Buffer size to transfer
@@ -222,6 +223,7 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
 
 void InitiMotor(dshotMotor* motor)
 {
+    motor->interruptCounter = 0;
     motor->updateBuffer = false;
     for (int i = 0; i < dmaTransferSize; i++)
     {
@@ -230,13 +232,5 @@ void InitiMotor(dshotMotor* motor)
     }
     motor->throttle = 0;
 
-    // Construct the command sequence to program the ESC, most commands need to be repeated 6 times for the ESC to accept them
-    uint16_t commandValues[3] = {
-        0, // Blank command for ESC to recognize DShot
-        13, // 13: Enable extended telemetry
-        12 // 12: Saves settings to eeprom
-    }; 
-    uint8_t repeat[3] = {100, 6, 6}; 
-    ConstructCommandSequence(motor, commandValues, repeat, 1);
     ConstructThrottle(motor, 0);
 }

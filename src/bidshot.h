@@ -17,6 +17,6 @@ void EXTI1_IRQHandler();
 
 void TIM4_IRQHandler();
 
-void DMA1_Stream0_IRQHandler();
+void DMA2_Stream6_IRQHandler();
 
 #endif

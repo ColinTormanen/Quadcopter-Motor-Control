@@ -4,18 +4,18 @@
 #include <stdint.h>
 #include <stm32f411xe.h>
 
-#define pollTimerWidth 128
-
-#define TelemetrySize 20 // Technically, there are 21 bits in the telemetry frame, but the first bit is always 0, and it missed by the polling
 #define Motor1Pin 0b10000
 #define Motor2Pin 0b100000
 #define Motor3Pin 0b1
 #define Motor4Pin 0b10
+#define pollTimerWidth 128
+
+#define TelemetrySize 20 // Technically, there are 21 bits in the telemetry frame, but the first bit is always 0, and it missed by the polling
 
 int motor_counter = 0;
 int motor_data = 0;
 uint32_t motor_data_buffer[TelemetrySize]; // Buffer to hold the GPIO telemetry data
-int current_motor = Motor1Pin;
+uint8_t current_motor = Motor1Pin;
 
 const uint8_t gcr_table[] = { // Nibble decoding table
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x9, 0xA,
@@ -32,10 +32,11 @@ void InitBidshot() {
     TIM3->CCMR1 |= (7<<4) | (7<<12); // Set to PWM mode 2 for CCR1, CCR2
     TIM3->CCMR2 |= (7<<4) | (7<<12); // Set to PWM mode 2 for CCR3, CCR4
 
-    // Enable the half transfer interrupt for motor 1 to read the telemetry data
-    // Telemetry start with motor 1, then iterates through each motor
-    // Not all motors are tuned at the same time
+    // Enable the half transfer interrupts to read the telemetry data
     DMA1_Stream4->CR |= (1<<3); 
+    DMA1_Stream5->CR |= (1<<3); 
+    DMA1_Stream7->CR |= (1<<3); 
+    DMA1_Stream2->CR |= (1<<3);
 
     // ==================== Configure Telemetry reading Timers ==================== //
     // Motor 1 -> B4, EXTI4_IRQn
@@ -98,14 +99,12 @@ void InitBidshot() {
     __NVIC_SetPriority(EXTI4_IRQn, 5);
     __NVIC_SetPriority(EXTI9_5_IRQn, 5);
 
-    __NVIC_SetPriority(TIM1_CC_IRQn, 10);
-
-    __NVIC_SetPriority(DMA2_Stream6_IRQn, 10);
     __NVIC_SetPriority(DMA1_Stream4_IRQn, 15);
     __NVIC_SetPriority(DMA1_Stream5_IRQn, 15);
     __NVIC_SetPriority(DMA1_Stream7_IRQn, 15);
     __NVIC_SetPriority(DMA1_Stream2_IRQn, 15);
     __NVIC_SetPriority(DMA1_Stream3_IRQn, 20);
+    __NVIC_SetPriority(DMA2_Stream6_IRQn, 20);
 
     __NVIC_EnableIRQ(DMA2_Stream6_IRQn);
 }
@@ -139,7 +138,7 @@ int Decode(int data, dshotMotor *motor) {
             motor->temperature = data;
             break;
         case 0x04:
-            motor->voltage = data * 25;
+            motor->voltage = data;
             break;
         case 0x06:
             motor->current = data;
@@ -153,6 +152,7 @@ int Decode(int data, dshotMotor *motor) {
 // Motor 1
 void EXTI4_IRQHandler() {
     if (EXTI->PR & (1 << 4) && !(GPIOB->IDR & (1 << 4))) {
+        current_motor = Motor1Pin;
         DMA2_Stream6->CR |= 1; // Start the DMA transfer
         TIM1->CR1 |= 1; // Start the timer
         EXTI->PR |= (1 << 4); // Clear the interrupt
@@ -161,54 +161,62 @@ void EXTI4_IRQHandler() {
         
         motor_data = 0;
     }
+    else
+    {
+        EXTI->PR |= (1 << 4); // Clear the interrupt
+    }
 }
 
 // Motor 2
 void EXTI9_5_IRQHandler() {
     if (EXTI->PR & (1 << 5) && !(GPIOB->IDR & (1 << 5))) {
+        current_motor = Motor2Pin;
+        DMA2_Stream6->CR |= 1; // Start the DMA transfer
+        TIM1->CR1 |= 1; // Start the timer
         EXTI->PR |= (1 << 5); // Clear the interrupt
         __NVIC_DisableIRQ(EXTI9_5_IRQn);
-        __NVIC_EnableIRQ(TIM5_IRQn);
+        __NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+        
         motor_data = 0;
-        TIM5->CNT = 0;  // Restart the timer
-        TIM5->CR1 |= 1; // Start the timer
+    }
+    else
+    {
+        EXTI->PR |= (1 << 5); // Clear the interrupt
     }
 }
 
 // Motor 3
 void EXTI0_IRQHandler() {
     if (EXTI->PR & (1 << 0) && !(GPIOB->IDR & (1 << 0))) {
+        current_motor = Motor3Pin;
+        DMA2_Stream6->CR |= 1; // Start the DMA transfer
+        TIM1->CR1 |= 1; // Start the timer
         EXTI->PR |= (1 << 0); // Clear the interrupt
         __NVIC_DisableIRQ(EXTI0_IRQn);
-        __NVIC_EnableIRQ(TIM1_BRK_TIM9_IRQn);
+        __NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+        
         motor_data = 0;
-        TIM9->CNT = 0;  // Restart the timer
-        TIM9->CR1 |= 1; // Start the timer
+    }
+    else
+    {
+        EXTI->PR |= (1 << 0); // Clear the interrupt
     }
 }
 // Motor 4
 void EXTI1_IRQHandler() {
     if (EXTI->PR & (1 << 1) && !(GPIOB->IDR & (1 << 1))) {
+        current_motor = Motor4Pin;
+        DMA2_Stream6->CR |= 1; // Start the DMA transfer
+        TIM1->CR1 |= 1; // Start the timer
         EXTI->PR |= (1 << 1); // Clear the interrupt
         __NVIC_DisableIRQ(EXTI1_IRQn);
-        __NVIC_EnableIRQ(TIM1_UP_TIM10_IRQn);
+        __NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+        
         motor_data = 0;
-        TIM10->CNT = 0;  // Restart the timer
-        TIM10->CR1 |= 1; // Start the timer
     }
-}
-// Motor 1 timer interrupt handler
-void TIM4_IRQHandler() {
-    if (TIM4->SR & (1 << 1)) {
-        TIM4->SR &= ~(1 << 1); // Clear the interrupt
-        motor_counter++;
-        motor_data = (motor_data << 1) | ((GPIOB->IDR & (1 << 4)) >> 4);
-        if (motor_counter > 19) {
-            TIM4->CR1 &= ~1; // Stop the timer
-            motor_counter = 0;
-            Decode(motor_data, motor1);
-            __NVIC_DisableIRQ(TIM4_IRQn);
-        }
+    else
+    {
+        EXTI->PR |= (1 << 1); // Clear the interrupt
     }
 }
 
@@ -252,45 +260,12 @@ void DMA2_Stream6_IRQHandler()
                 currentMotor = motor1; // Default to motor1 if no match
         }
 
-        Decode(motor_data, currentMotor);
-
         // Process the telemetry data in motor_data_buffer
-        if (!Decode(motor_data, currentMotor)) {
-                while (DMA2_Stream0->CR & 1) {
-            }
-            DMA2_Stream0->NDTR = TelemetrySize;
-            DMA2_Stream0->M0AR = (uint32_t)motor_data_buffer;
-            return; 
-        }
+        Decode(motor_data, currentMotor);
+        currentMotor->interruptCounter++;
 
-        switch (current_motor)
-        {
-            case Motor1Pin:
-                current_motor = Motor2Pin;
-                DMA1_Stream4->CR &= ~(1<<3); // Disable half transfer interrupt for motor 1
-                DMA1_Stream5->CR |= (1<<3); // Enable half transfer interrupt for motor 2
-                break;
-            case Motor2Pin:
-                current_motor = Motor3Pin;
-                DMA1_Stream5->CR &= ~(1<<3); // Disable half transfer interrupt for motor 2
-                DMA1_Stream7->CR |= (1<<3); // Enable half transfer interrupt for motor 3
-                break;
-            case Motor3Pin:
-                current_motor = Motor4Pin;
-                DMA1_Stream7->CR &= ~(1<<3); // Disable half transfer interrupt for motor 3
-                DMA1_Stream2->CR |= (1<<3); // Enable half transfer interrupt for motor 4
-                break;
-            case Motor4Pin:
-                current_motor = Motor1Pin;
-                DMA1_Stream2->CR &= ~(1<<3); // Disable half transfer interrupt for motor 4
-                DMA1_Stream4->CR |= (1<<3); // Enable half transfer interrupt for motor 1
-                break;
-            default:
-                current_motor = Motor1Pin;
-                DMA1_Stream4->CR &= ~(1<<3); // Disable half transfer interrupt for motor 1
-                DMA1_Stream5->CR |= (1<<3); // Enable half transfer interrupt for motor 2
-                break;
-        }
+        // Advance to the next motor for sequential processing
+        next_motor = (next_motor + 1) % 4;
 
         while (DMA2_Stream6->CR & 1) {
         }
