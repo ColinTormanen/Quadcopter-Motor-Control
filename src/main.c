@@ -6,7 +6,7 @@
 #include "system.h"
 #include <stdint.h>
 
-#define MotorStartDelay 20000000
+#define MotorStartDelay 25000000
 
 uint16_t ThrottleCommand[4]; 
 
@@ -40,7 +40,7 @@ void MotorStartupSequence()
     BusyWait(MotorStartDelay);
 
     // Construct the command sequence to program the ESC, most commands need to be repeated 6 times for the ESC to accept them
-    uint16_t cwCommandValues[10] = {
+    uint16_t ccwCommandValues[10] = {
         7, // Set spin direction
         9,  // 9: Disable bidirectional spinning
         14, // 14: Disable extended telemetry
@@ -48,18 +48,18 @@ void MotorStartupSequence()
         48  // Last command should help transition the motors consistently into spinning
     }; 
 
-    uint16_t ccwCommandValues[10] = {
+    uint16_t cwCommandValues[10] = {
         8, // Set spin direction
         9,  // 9: Disable bidirectional spinning
         14, // 14: Disable extended telemetry
         12, // 12: Saves settings to eeprom
         48  // Last command should help transition the motors consistently into spinning
     }; 
-    uint8_t repeat[10] = {6, 6, 6, 6, 100}; 
+    uint8_t repeat[10] = {6, 6, 6, 6, 200}; 
     ConstructCommandSequence(motor1, cwCommandValues, repeat, 5);
     ConstructCommandSequence(motor2, ccwCommandValues, repeat, 5);
-    ConstructCommandSequence(motor3, cwCommandValues, repeat, 5);
-    ConstructCommandSequence(motor4, ccwCommandValues, repeat, 5);
+    ConstructCommandSequence(motor3, ccwCommandValues, repeat, 5);
+    ConstructCommandSequence(motor4, cwCommandValues, repeat, 5);
 
     // Set minimum throttle to start the motors
     SetMotorThrottle(motor1, 48);
