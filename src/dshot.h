@@ -7,7 +7,7 @@
 #define dshotLow 15
 
 // DShot is 16 bits. The rest are used for inter-frame gap 
-#define dmaTransferSize 52
+#define dmaTransferSize 20
 #define true 1
 #define false 0
 

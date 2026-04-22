@@ -10,16 +10,16 @@ void ConstructDshotFrame(uint16_t* buffer, uint16_t throttleValue)
     if (throttleValue > 2047) throttleValue = 2047; 
     
     // Shift to make space for telemetry bit
-    throttleValue = (throttleValue << 1)  | 0; // telemetry bit set to 1
+    throttleValue = (throttleValue << 1)  | 0; // telemetry bit set to 0
 
     // Cacluate crc
-    uint16_t crc = ~(throttleValue ^ (throttleValue >> 4) ^ (throttleValue >> 8)) & 0xF;
+    uint16_t crc = (throttleValue ^ (throttleValue >> 4) ^ (throttleValue >> 8)) & 0xF;
 
     // Construct the 16 bit frame
     uint16_t frame = (throttleValue << 4) | crc;
-    for (int i = 1; i < 17; i++)
+    for (int i = 0; i < 16; i++)
     {
-        if (frame & (1 << (16 - i)))
+        if (frame & (1 << (15 - i)))
         {
             buffer[i] = dshotHigh;
         }
@@ -28,9 +28,8 @@ void ConstructDshotFrame(uint16_t* buffer, uint16_t throttleValue)
             buffer[i] = dshotLow;
         }
     }
-    for (int i = 17; i < dmaTransferSize; i++) 
+    for (int i = 16; i < dmaTransferSize; i++) 
         buffer[i] = 0; // inter-frame gap
-    buffer[0] = 0;
 }
 
 void ConstructCommandSequence(dshotMotor* motor, uint16_t* commandValues, uint8_t* repeat, uint8_t numCommands) 
@@ -76,8 +75,8 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
 
     //               B0      B1      B4        B5    
     GPIOB->MODER    |= 2 | (2<<2) | (2<<8) | (2<<10); // Set Pin 0-3 to alternate function mode'
-    GPIOB->PUPDR    |= 1 | (1<<2) | (1<<8) | (1<<10); // Enable pull-up resistor
-    // GPIOB->PUPDR    |= 2 | (2<<2) | (2<<8) | (2<<10);; // Enable pull-down resistor
+    // GPIOB->PUPDR    |= 1 | (1<<2) | (1<<8) | (1<<10); // Enable pull-up resistor
+    GPIOB->PUPDR    |= 2 | (2<<2) | (2<<8) | (2<<10);; // Enable pull-down resistor
     GPIOB->OSPEEDR  |= 3 | (3<<2) | (3<<8) | (3<<10); // High output speed
     GPIOB->AFR[0] &= ~0xFF00FF; // Clear function
     GPIOB->AFR[0] |= (2 | (2<<4) | (2<<16) | (2<<20)); // Set alternate function to AF02, TIM3

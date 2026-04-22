@@ -83,7 +83,7 @@ int main()
         while (!(GPIOC->IDR & (1 << 15))); // Wait for on signal
 
         InitMotors();
-        InitBidshot();
+        // InitBidshot();
 
         MotorStartupSequence(); // Initialize motors
 
