@@ -7,8 +7,10 @@
 #include <stdint.h>
 
 #define MotorStartDelay 25000000
+#define InitDelay 10000000
 
 uint16_t ThrottleCommand[4]; 
+uint8_t ReadyForCommands = false;
 
 
 void BusyWait(uint32_t delay) 
@@ -35,31 +37,31 @@ void InitSpiMotorThrottle()
 */
 void MotorStartupSequence()
 {
-    StartMotors();
-
-    BusyWait(MotorStartDelay);
-
     // Construct the command sequence to program the ESC, most commands need to be repeated 6 times for the ESC to accept them
     uint16_t ccwCommandValues[10] = {
+        2, // Beep tone
         7, // Set spin direction
         9,  // 9: Disable bidirectional spinning
         14, // 14: Disable extended telemetry
         12, // 12: Saves settings to eeprom
+        1,  // Beep tone
         48  // Last command should help transition the motors consistently into spinning
     }; 
 
     uint16_t cwCommandValues[10] = {
+        1, // Beep tone
         8, // Set spin direction
         9,  // 9: Disable bidirectional spinning
         14, // 14: Disable extended telemetry
         12, // 12: Saves settings to eeprom
+        2,  // Beep tone
         48  // Last command should help transition the motors consistently into spinning
     }; 
-    uint8_t repeat[10] = {6, 6, 6, 6, 200}; 
-    ConstructCommandSequence(motor1, cwCommandValues, repeat, 5);
-    ConstructCommandSequence(motor2, ccwCommandValues, repeat, 5);
-    ConstructCommandSequence(motor3, ccwCommandValues, repeat, 5);
-    ConstructCommandSequence(motor4, cwCommandValues, repeat, 5);
+    uint16_t repeat[10] = {2000, 6, 6, 6, 6, 2000, 200}; 
+    ConstructCommandSequence(motor1, cwCommandValues, repeat, 7);
+    ConstructCommandSequence(motor2, ccwCommandValues, repeat, 7);
+    ConstructCommandSequence(motor3, ccwCommandValues, repeat, 7);
+    ConstructCommandSequence(motor4, cwCommandValues, repeat, 7);
 
     // Set minimum throttle to start the motors
     SetMotorThrottle(motor1, 48);
@@ -71,6 +73,7 @@ void MotorStartupSequence()
 int main() 
 {
     SystemClock_Config_100MHz_HSE();
+    BusyWait(InitDelay);
 
     LedInit();
     LedOff();
@@ -78,20 +81,25 @@ int main()
     SPI_Init();
     InitSpiMotorThrottle(); // Enable SPI and DMA for receiving throttle commands
 
+    InitMotors();
+    StartMotors();
+    BusyWait(MotorStartDelay);
+
     while (1)
     {
         while (!(GPIOC->IDR & (1 << 15))); // Wait for on signal
-
-        InitMotors();
+        
         // InitBidshot();
 
         MotorStartupSequence(); // Initialize motors
 
         LedOn();
+        ReadyForCommands = true;
         GPIOC->ODR |= (1 << 14); // Set C14 high to indicate we're ready for commands
 
         while (GPIOC->IDR & (1 << 15)); // Wait for off signal
         GPIOC->ODR &= ~(1 << 14); // Set C14 low to indicate we're no longer accepting commands
+        ReadyForCommands = false;
 
         StopMotors(); // Stop motors
 
@@ -116,27 +124,47 @@ void DMA1_Stream3_IRQHandler()
     {
         DMA1->LIFCR |= (1 << 27); // Clear the interrupt
 
+        if (!ReadyForCommands) {
+            // If we're not ready for commands, ignore the data and reset the DMA stream
+            DMA1_Stream3->M0AR  = (uint32_t) ThrottleCommand; // Set the memory location to the buffer
+            DMA1_Stream3->NDTR = 4; // Buffer size to transfer
+            while (DMA1_Stream3->CR & 1) {
+            }
+            DMA1_Stream3->CR |= 1; // Enable the DMA stream
+            return;
+        }
+
+        volatile uint16_t one, two, three, four;
+
         for (int i = 0; i < 4; i++) {
 
             switch (ThrottleCommand[i] & 0xF800)
             {
                 case 0x800: // Motor 1 command
                     SetMotorThrottle(motor1, ThrottleCommand[i] & 0x07FF);
+                    one = ThrottleCommand[i] & 0x07FF;
                     break;
                 case 0x1000: // Motor 2 command
                     SetMotorThrottle(motor2, ThrottleCommand[i] & 0x07FF);
+                    two = ThrottleCommand[i] & 0x07FF;
                     break;
                 case 0x1800: // Motor 3 command
                     SetMotorThrottle(motor3, ThrottleCommand[i] & 0x07FF);
+                    three = ThrottleCommand[i] & 0x07FF;
                     break;
                 case 0x2000: // Motor 4 command
                     SetMotorThrottle(motor4, ThrottleCommand[i] & 0x07FF);
+                    four = ThrottleCommand[i] & 0x07FF;
                     break;
                 default:
                     // Invalid command, ignore
                     break;
             }
         }
+        one = one;
+        two = two;
+        three = three;
+        four = four;
 
         for (int i = 0; i < 4; i++) {
             ThrottleCommand[i] = 0; // Clear the command after processing

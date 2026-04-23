@@ -99,11 +99,6 @@ void InitBidshot() {
     __NVIC_SetPriority(EXTI4_IRQn, 5);
     __NVIC_SetPriority(EXTI9_5_IRQn, 5);
 
-    __NVIC_SetPriority(DMA1_Stream4_IRQn, 15);
-    __NVIC_SetPriority(DMA1_Stream5_IRQn, 15);
-    __NVIC_SetPriority(DMA1_Stream7_IRQn, 15);
-    __NVIC_SetPriority(DMA1_Stream2_IRQn, 15);
-    __NVIC_SetPriority(DMA1_Stream3_IRQn, 20);
     __NVIC_SetPriority(DMA2_Stream6_IRQn, 20);
 
     __NVIC_EnableIRQ(DMA2_Stream6_IRQn);

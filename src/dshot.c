@@ -32,7 +32,7 @@ void ConstructDshotFrame(uint16_t* buffer, uint16_t throttleValue)
         buffer[i] = 0; // inter-frame gap
 }
 
-void ConstructCommandSequence(dshotMotor* motor, uint16_t* commandValues, uint8_t* repeat, uint8_t numCommands) 
+void ConstructCommandSequence(dshotMotor* motor, uint16_t* commandValues, uint16_t* repeat, uint8_t numCommands) 
 {
     for (int i = 0; i < numCommands; i++) 
     {
@@ -218,6 +218,12 @@ void InitDshot(dshotMotor* motor1, dshotMotor* motor2, dshotMotor* motor3, dshot
     DMA1_Stream2->FCR = 0;
 
     // __NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+
+    __NVIC_SetPriority(DMA1_Stream4_IRQn, 15);
+    __NVIC_SetPriority(DMA1_Stream5_IRQn, 15);
+    __NVIC_SetPriority(DMA1_Stream7_IRQn, 15);
+    __NVIC_SetPriority(DMA1_Stream2_IRQn, 15);
+    __NVIC_SetPriority(DMA1_Stream3_IRQn, 20);
 }
 
 void InitiMotor(dshotMotor* motor)

@@ -19,8 +19,11 @@ void InitMotors();
 // Enable the timer and DMA streams to start the motors
 void StartMotors();
 
-// Disables the timer and DMA streams to stop the motors
+// Sets the throttle to 0 but keeps the timer and DMA streams running to stop the motors
 void StopMotors();
+
+// Disables the timer and DMA streams to stop the motors
+void HardStopMotors();
 
 // Set the motor throttle, 48-2047 are valid throttle values
 void SetMotorThrottle(dshotMotor* motor, uint16_t throttle);

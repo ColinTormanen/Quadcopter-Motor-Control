@@ -43,6 +43,13 @@ void StartMotors() {
 }
 
 void StopMotors() {
+    ConstructThrottle(motor1, 0);
+    ConstructThrottle(motor2, 0);
+    ConstructThrottle(motor3, 0);
+    ConstructThrottle(motor4, 0);
+}
+
+void HardStopMotors() {
     DMA1_Stream4->CR &= ~1;
     DMA1_Stream5->CR &= ~1;
     DMA1_Stream7->CR &= ~1;

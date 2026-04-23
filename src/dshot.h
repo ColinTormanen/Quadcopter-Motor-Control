@@ -7,7 +7,7 @@
 #define dshotLow 15
 
 // DShot is 16 bits. The rest are used for inter-frame gap 
-#define dmaTransferSize 20
+#define dmaTransferSize 52
 #define true 1
 #define false 0
 
@@ -15,7 +15,7 @@
 
 typedef struct {
     uint16_t command[dmaTransferSize];
-    uint8_t repeat;
+    uint16_t repeat;
 } dshotCommand;
 
 typedef struct {
@@ -34,7 +34,7 @@ typedef struct {
     uint32_t interruptCounter;
 } dshotMotor;
 
-void ConstructCommandSequence(dshotMotor* motor, uint16_t* commandValues, uint8_t* repeat, uint8_t numCommands);
+void ConstructCommandSequence(dshotMotor* motor, uint16_t* commandValues, uint16_t* repeat, uint8_t numCommands);
 
 void ConstructThrottle(dshotMotor* motor, uint16_t throttle);
 

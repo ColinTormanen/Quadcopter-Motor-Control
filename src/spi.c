@@ -36,7 +36,7 @@ void SPI_Init(void) {
 	DMA1_Stream3->CR = 0; // Reset the stream
 	while (DMA1_Stream3->CR & 1); // Wait for the stream to be ready
 	DMA1_Stream3->CR |= (0 << 25); // Channel 0 for SPI2_RX
-	DMA1_Stream3->CR |= (2 << 16); // High priority
+	DMA1_Stream3->CR |= (2 << 16); // High prioraqity
 	DMA1_Stream3->CR |= (0 << 6); // Peripheral to memory
 	DMA1_Stream3->CR &= ~(1 << 9); // Peripheral address is fixed
 	DMA1_Stream3->CR |= (1 << 10); // Memory incremented
